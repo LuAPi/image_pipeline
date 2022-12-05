@@ -339,6 +339,7 @@ class Calibrator():
         self.param_ranges = [0.7, 0.7, 0.4, 0.5]
         self.name = name
         self.last_frame_corners = None
+        self.last_seen_corners = None
         self.last_frame_ids = None
         self.max_chessboard_speed = max_chessboard_speed
 
@@ -531,7 +532,41 @@ class Calibrator():
 
         if self.pattern == Patterns.Chessboard:
             # Detect checkerboard
-            (ok, downsampled_corners, ids, board) = self.get_corners(scrib, refine = True)
+            downsampled_corners = None
+            if self.last_seen_corners is not None:
+                min_x = width
+                max_x = 0
+                min_y = height
+                max_y = 0
+                for corner in self.last_seen_corners:
+                    x,y = corner[0]
+                    min_x = min(min_x, x)
+                    max_x = max(max_x, x)
+                    min_y = min(min_y, y)
+                    max_y = max(max_y, y)
+                prev_corner_width = max_x - min_x
+                prev_corner_height = max_y - min_y
+                if (prev_corner_width * 1.4) < 640.0:
+                    #print("operating on crop")
+                    crop_min_x = int(max(0, min_x - 0.2 * prev_corner_width))
+                    crop_max_x = int(min(width, max_x + 0.2 * prev_corner_width))
+                    crop_min_y = int(max(0, min_y - 0.2 * prev_corner_height))
+                    crop_max_y = int(min(height, max_y + 0.2 * prev_corner_height))
+                    cropped_img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x]
+                    #print(f"{crop_min_x=}\n{crop_max_x=}\n{crop_min_y=}\n{crop_max_y=}\n{cropped_img.shape=}")
+                    #print(f"{prev_corner_width=}\n{prev_corner_height=}\n")
+                    (ok, cropped_corners, ids, board) = self.get_corners(cropped_img, refine = True)
+                    if ok:
+                        cropped_corners[:, :, 0] += crop_min_x
+                        cropped_corners[:, :, 1] += crop_min_y
+                        downsampled_corners = cropped_corners.copy()
+                        scale = 1.0
+                        scrib = img
+                        x_scale = 1.0
+                        y_scale = 1.0
+            if downsampled_corners is None:
+                #print("falling back to global search")
+                (ok, downsampled_corners, ids, board) = self.get_corners(scrib, refine = True)
 
             # Scale corners back to full size image
             corners = None
@@ -565,6 +600,8 @@ class Calibrator():
                 else:
                     downsampled_corners = corners
 
+        if ok:
+            self.last_seen_corners = corners
         return (scrib, corners, downsampled_corners, ids, board, (x_scale, y_scale))
 
     @staticmethod
