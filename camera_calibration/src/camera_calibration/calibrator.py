@@ -341,6 +341,8 @@ class Calibrator():
         self.last_frame_corners = None
         self.last_seen_corners = None
         self.last_frame_ids = None
+        self.failures_since_last_successful_detection = 0
+        self.max_failures_before_full_res_search = 10
         self.max_chessboard_speed = max_chessboard_speed
 
     def mkgray(self, msg):
@@ -522,10 +524,12 @@ class Calibrator():
         height = img.shape[0]
         width = img.shape[1]
         scale = math.sqrt( (width*height) / (640.*480.) )
-        if scale > 1.0:
+        if scale > 1.0 and (self.failures_since_last_successful_detection <
+                            self.max_failures_before_full_res_search):
             scrib = cv2.resize(img, (int(width / scale), int(height / scale)))
         else:
             scrib = img
+            scale = 1.0
         # Due to rounding, actual horizontal/vertical scaling may differ slightly
         x_scale = float(width) / scrib.shape[1]
         y_scale = float(height) / scrib.shape[0]
@@ -596,6 +600,11 @@ class Calibrator():
 
         if ok:
             self.last_seen_corners = corners
+            self.failures_since_last_successful_detection = 0
+        else:
+            self.failures_since_last_successful_detection += 1
+            if self.failures_since_last_successful_detection >= self.max_failures_before_full_res_search:
+                self.last_seen_corners = None
         return (scrib, corners, downsampled_corners, ids, board, (x_scale, y_scale))
 
     @staticmethod
