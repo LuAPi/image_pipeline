@@ -534,16 +534,10 @@ class Calibrator():
             # Detect checkerboard
             downsampled_corners = None
             if self.last_seen_corners is not None:
-                min_x = width
-                max_x = 0
-                min_y = height
-                max_y = 0
-                for corner in self.last_seen_corners:
-                    x,y = corner[0]
-                    min_x = min(min_x, x)
-                    max_x = max(max_x, x)
-                    min_y = min(min_y, y)
-                    max_y = max(max_y, y)
+                min_x = min(self.last_seen_corners[:, :, 0])[0]
+                max_x = max(self.last_seen_corners[:, :, 0])[0]
+                min_y = min(self.last_seen_corners[:, :, 1])[0]
+                max_y = max(self.last_seen_corners[:, :, 1])[0]
                 prev_corner_width = max_x - min_x
                 prev_corner_height = max_y - min_y
                 if (prev_corner_width * 1.4) < 640.0:
